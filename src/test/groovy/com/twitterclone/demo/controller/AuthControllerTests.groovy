@@ -1,11 +1,15 @@
 package com.twitterclone.demo.controller
 
+import com.twitterclone.demo.IntegrationTestsBase
 import com.twitterclone.demo.auth.JwtTokenUtils
 import com.twitterclone.demo.controller.dto.UserDto
 import com.twitterclone.demo.service.AuthService
 import groovy.json.JsonOutput
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
 
@@ -13,6 +17,11 @@ class AuthControllerTests extends IntegrationTestsBase {
 
     @Autowired
     AuthService authService
+
+    @DynamicPropertySource
+    static void setProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl)
+    }
 
     def "testing user registration"() {
         given:
@@ -66,7 +75,7 @@ class AuthControllerTests extends IntegrationTestsBase {
 
         then:
         res.andExpect(MockMvcResultMatchers.status().isOk())
-        String token = res.andReturn().getResponse().getHeader("Authorization");
+        String token = res.andReturn().getResponse().getHeader(HttpHeaders.AUTHORIZATION);
         JwtTokenUtils.isTokenValid(token)
     }
 
@@ -90,25 +99,25 @@ class AuthControllerTests extends IntegrationTestsBase {
                         .header("Authorization", basicToken)
         )
 
-        String token = res.andReturn().getResponse().getHeader("Authorization");
+        String token = res.andReturn().getResponse().getHeader(HttpHeaders.AUTHORIZATION);
 
         when:
         def res1 = mockMvcWithFilter.perform(
                 MockMvcRequestBuilders
                         .post("/logout")
-                        .header("Authorization", "Bearer " + token)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
         )
 
         def res2 = mockMvcWithFilter.perform(
                 MockMvcRequestBuilders
                         .post("/logout")
-                        .header("Authorization", "Bearer " + token)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
         )
 
         def res3 = mockMvcWithFilter.perform(
                 MockMvcRequestBuilders
                         .patch("/users/{userId}", userId)
-                        .header("Authorization", "Bearer " + token)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(JsonOutput.toJson(userDto))
         )

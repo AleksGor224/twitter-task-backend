@@ -3,7 +3,9 @@ package com.twitterclone.demo.controller
 import com.twitterclone.demo.controller.dto.UserDto
 import com.twitterclone.demo.exception.exceptions.ValidationException
 import com.twitterclone.demo.service.UsersService
-import org.springframework.beans.factory.annotation.Autowired
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 
@@ -11,41 +13,52 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/users")
 class UsersController {
 
-    @Autowired
-    private UsersService usersService;
+    private final UsersService usersService
+
+    UsersController(UsersService usersService) {
+        this.usersService = usersService
+    }
 
     @PatchMapping("{userId}")
-    def updateUser(@RequestBody UserDto userDto, @PathVariable("userId") String userId) {
-        if (!userId) {
-            throw new ValidationException("User ID shouldn't be empty")
-        }
-        usersService.updateUser(userDto, userId);
+    @Operation(summary = "Update user", description = "Updates a user's information.")
+    @ApiResponse(responseCode = "200", description = "User updated successfully")
+    def updateUser(@RequestBody UserDto userDto, @Parameter(description = "ID of the user") @PathVariable("userId") String userId) {
+        validateNotEmpty(userId, "User ID")
+        usersService.updateUser(userDto, userId)
     }
 
     @DeleteMapping("{userId}")
-    def deleteUser(@PathVariable("userId") String userId) {
-        if (!userId) {
-            throw new ValidationException("User ID shouldn't be empty")
-        }
-        usersService.deleteUser(userId);
+    @Operation(summary = "Delete user", description = "Deletes a user.")
+    @ApiResponse(responseCode = "200", description = "User deleted successfully")
+    def deleteUser(@Parameter(description = "ID of the user") @PathVariable("userId") String userId) {
+        validateNotEmpty(userId, "User ID")
+        usersService.deleteUser(userId)
     }
 
     @PutMapping("{userId}/subscribe/{followerId}")
     @ResponseStatus(HttpStatus.CREATED)
-    def follow(@PathVariable("userId") String userId, @PathVariable("followerId") String followerId) {
-        if (!userId || !followerId) {
-            throw new ValidationException(String.format(
-                    "%s shouldn't be empty", userId ? "Follower ID" : "User ID"))
-        }
-        usersService.follow(userId, followerId);
+    @Operation(summary = "Follow user", description = "Starts following another user.")
+    @ApiResponse(responseCode = "201", description = "User followed successfully")
+    def follow(@Parameter(description = "ID of the user to follow") @PathVariable("userId") String userId,
+               @Parameter(description = "ID of the follower") @PathVariable("followerId") String followerId) {
+        validateNotEmpty(userId, "User ID")
+        validateNotEmpty(followerId, "Follower ID")
+        usersService.follow(userId, followerId)
     }
 
     @DeleteMapping("{userId}/subscribe/{followerId}")
-    def unfollow(@PathVariable("userId") String userId, @PathVariable("followerId") String followerId) {
-        if (!userId || !followerId) {
-            throw new ValidationException(String.format(
-                    "%s shouldn't be empty", userId ? "Follower ID" : "User ID"))
+    @Operation(summary = "Unfollow user", description = "Stops following another user.")
+    @ApiResponse(responseCode = "200", description = "User unfollowed successfully")
+    def unfollow(@Parameter(description = "ID of the user to unfollow") @PathVariable("userId") String userId,
+                 @Parameter(description = "ID of the follower") @PathVariable("followerId") String followerId) {
+        validateNotEmpty(userId, "User ID")
+        validateNotEmpty(followerId, "Follower ID")
+        usersService.unfollow(userId, followerId)
+    }
+
+    private static void validateNotEmpty(String value, String fieldName) {
+        if (!value) {
+            throw new ValidationException("$fieldName shouldn't be empty")
         }
-        usersService.unfollow(userId, followerId);
     }
 }

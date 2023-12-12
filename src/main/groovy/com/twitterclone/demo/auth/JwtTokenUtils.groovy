@@ -1,40 +1,56 @@
 package com.twitterclone.demo.auth
 
-import io.jsonwebtoken.*
+import groovy.util.logging.Slf4j
+import io.jsonwebtoken.Claims
+import io.jsonwebtoken.JwtException
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.SignatureAlgorithm
 import io.jsonwebtoken.security.Keys
 
 import java.security.Key
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
+@Slf4j
 class JwtTokenUtils {
 
     private static final String SECRET_KEY = "suPEr-hjGEFG*&_secret%for*super-keyAaBbFgE&&&%*#"
-    private static final long EXPIRATION_TIME = 30 * 60 * 1000
+    private static final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes("UTF-8"))
+    private static final long EXPIRATION_TIME = ChronoUnit.MINUTES.getDuration().toMillis() * 30
 
     static String generateToken(String username) {
-        Key key = Keys.hmacShaKeyFor(SECRET_KEY.bytes)
         return Jwts.builder()
                 .setSubject(username)
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .setExpiration(Date.from(Instant.now().plusMillis(EXPIRATION_TIME)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact()
     }
 
-    static String getUsernameFromToken(String token) throws ExpiredJwtException, MalformedJwtException {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(SECRET_KEY.bytes)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.getSubject();
+    static String getUsernameFromToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+            return claims.getSubject()
+        } catch (JwtException ex) {
+            log.warn("Getting username from jwt was failed", ex)
+            return null
+        }
     }
 
-
-    static boolean isTokenValid(String token) throws ExpiredJwtException, MalformedJwtException {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(SECRET_KEY.bytes)
-                .build()
-                .parseClaimsJws(token)
-                .body
-        return claims.getExpiration().after(new Date())
+    static boolean isTokenValid(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+            return claims.getExpiration().after(Date.from(Instant.now()))
+        } catch (Exception ex) {
+            log.warn("Invalid token. Value is '%'", token, ex)
+            return false
+        }
     }
 }

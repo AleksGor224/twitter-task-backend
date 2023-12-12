@@ -1,5 +1,6 @@
 package com.twitterclone.demo.controller
 
+import com.twitterclone.demo.IntegrationTestsBase
 import com.twitterclone.demo.controller.dto.CommentDto
 import com.twitterclone.demo.controller.dto.CommentViewDto
 import com.twitterclone.demo.controller.dto.PostDto
@@ -10,13 +11,21 @@ import com.twitterclone.demo.repo.entities.Post
 import com.twitterclone.demo.repo.entities.User
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
 
 class PostsControllerTests extends IntegrationTestsBase {
 
     public static final String ID = "id"
+
+    @DynamicPropertySource
+    static void setProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl)
+    }
 
     def "test post create"() {
         given:
@@ -382,15 +391,15 @@ class PostsControllerTests extends IntegrationTestsBase {
         def tokenResult = mockMvcWithFilter.perform(
                 MockMvcRequestBuilders
                         .post("/login")
-                        .header("Authorization", basicToken)
+                        .header(HttpHeaders.AUTHORIZATION, basicToken)
         )
 
-        String token = tokenResult.andReturn().getResponse().getHeader("Authorization");
+        String token = tokenResult.andReturn().getResponse().getHeader(HttpHeaders.AUTHORIZATION);
 
         //get feed for user that logged
         def result1 = mockMvcWithFilter.perform(MockMvcRequestBuilders
                 .get("/posts/myFeed")
-                .header("Authorization", "Bearer " + token)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .content(JsonOutput.toJson(userDto))
                 .contentType(MediaType.APPLICATION_JSON)
         )
@@ -403,15 +412,15 @@ class PostsControllerTests extends IntegrationTestsBase {
         tokenResult = mockMvcWithFilter.perform(
                 MockMvcRequestBuilders
                         .post("/login")
-                        .header("Authorization", basicToken)
+                        .header(HttpHeaders.AUTHORIZATION, basicToken)
         )
 
-        token = tokenResult.andReturn().getResponse().getHeader("Authorization");
+        token = tokenResult.andReturn().getResponse().getHeader(HttpHeaders.AUTHORIZATION);
 
         //get feed for user that logged
         def result2 = mockMvcWithFilter.perform(MockMvcRequestBuilders
                 .get("/posts/myFeed")
-                .header("Authorization", "Bearer " + token)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .content(JsonOutput.toJson(userDto))
                 .contentType(MediaType.APPLICATION_JSON)
         )

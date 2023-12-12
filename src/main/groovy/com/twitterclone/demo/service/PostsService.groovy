@@ -8,7 +8,6 @@ import com.twitterclone.demo.repo.entities.Comment
 import com.twitterclone.demo.repo.entities.Post
 import com.twitterclone.demo.repo.entities.User
 import com.twitterclone.demo.utils.ApiUtils
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 
@@ -17,10 +16,13 @@ import java.util.stream.Collectors
 @Service
 class PostsService {
 
-    @Autowired
-    PostsRepo postsRepo
-    @Autowired
-    UsersService usersService
+    private final PostsRepo postsRepo
+    private final UsersService usersService
+
+    PostsService(PostsRepo postsRepo, UsersService usersService) {
+        this.postsRepo = postsRepo
+        this.usersService = usersService
+    }
 
     Map createPost(PostDto postDto, String userId) {
         def user = usersService.checkIfUserExistsOrThrow(userId)
@@ -73,39 +75,10 @@ class PostsService {
         User user = usersService.findUserByUsername(currentUsername)
                 .orElseThrow { new ForbiddenException("Please check your credentials and try again") }
 
-        List<PostViewDto> res = []
-
-        user.getFollowers().forEach { follower ->
-            res.addAll(postsRepo.findAllWithCommentsAndLikesByOwnerId(follower.getUserId()).collect { post ->
-                def comments = post.comments.collect { comment ->
-                    new CommentViewDto(
-                            data: comment.data,
-                            ownerUsername: comment.owner.username,
-                            ownerId: comment.owner.userId,
-                            createDate: ApiUtils.convertEpochToHumanDate(comment.createDate)
-                    )
-                }
-
-                def likes = post.likedBy.collect { like ->
-                    new UserViewDto(
-                            username: like.username,
-                            userId: like.userId
-                    )
-                }
-
-                new PostViewDto(
-                        data: post.data,
-                        ownerId: post.owner.userId,
-                        ownerUsername: post.owner.username,
-                        createData: ApiUtils.convertEpochToHumanDate(post.createDate),
-                        lastUpdate: ApiUtils.convertEpochToHumanDate(post.createDate),
-                        likedBy: likes,
-                        comments: comments
-                )
-            })
-        }
-
-        return res
+        return user.getFollowers().stream()
+                .flatMap(follower -> postsRepo.findAllWithCommentsAndLikesByOwnerId(follower.getUserId()).stream())
+                .map(post -> convertToPostViewDto(post))
+                .collect(Collectors.toList())
     }
 
     List<PostViewDto> getUserFeed(String userId) {
@@ -155,5 +128,33 @@ class PostsService {
         Post post = postsRepo.findById(postId)
                 .orElseThrow { new PostNotFoundException("Post with id '$postId' not found") }
         return post
+    }
+
+    private static PostViewDto convertToPostViewDto(Post post) {
+        List<CommentViewDto> comments = post.getComments().stream()
+                .map(comment -> new CommentViewDto(
+                        data: comment.getData(),
+                        ownerUsername: comment.getOwner().getUsername(),
+                        ownerId: comment.getOwner().getUserId(),
+                        createDate: ApiUtils.convertEpochToHumanDate(comment.getCreateDate())
+                ))
+                .collect(Collectors.toList())
+
+        List<UserViewDto> likes = post.getLikedBy().stream()
+                .map(like -> new UserViewDto(
+                        username: like.getUsername(),
+                        userId: like.getUserId()
+                ))
+                .collect(Collectors.toList())
+
+        return new PostViewDto(
+                data: post.getData(),
+                ownerId: post.getOwner().getUserId(),
+                ownerUsername: post.getOwner().getUsername(),
+                createData: ApiUtils.convertEpochToHumanDate(post.getCreateDate()),
+                lastUpdate: ApiUtils.convertEpochToHumanDate(post.getLastUpdate()),
+                likedBy: likes,
+                comments: comments
+        )
     }
 }

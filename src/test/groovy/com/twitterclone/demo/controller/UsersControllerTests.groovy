@@ -1,13 +1,21 @@
 package com.twitterclone.demo.controller
 
+import com.twitterclone.demo.IntegrationTestsBase
 import com.twitterclone.demo.controller.dto.UserDto
 import com.twitterclone.demo.repo.entities.User
 import groovy.json.JsonOutput
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
 
 class UsersControllerTests extends IntegrationTestsBase {
+
+    @DynamicPropertySource
+    static void setProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl)
+    }
 
     def "test user update default scenario"() {
         given:
@@ -53,7 +61,7 @@ class UsersControllerTests extends IntegrationTestsBase {
         )
         res.andExpect(MockMvcResultMatchers.status().isNotFound())
 
-        getResultAsMap(res).get('message') == "USER with id '" + uuid + "' not found"
+        getResultAsMap(res).get('message') == "User with id '" + uuid + "' not found"
     }
 
     def "test delete user default scenario"() {
@@ -81,7 +89,7 @@ class UsersControllerTests extends IntegrationTestsBase {
         then:
         result.andExpect(MockMvcResultMatchers.status().isNotFound())
 
-        getResultAsMap(result).get('message') == "USER with id '" + uuid + "' not found"
+        getResultAsMap(result).get('message') == "User with id '" + uuid + "' not found"
     }
 
     def "test user following"() {

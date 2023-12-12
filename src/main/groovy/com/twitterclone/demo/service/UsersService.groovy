@@ -4,57 +4,55 @@ import com.twitterclone.demo.controller.dto.UserDto
 import com.twitterclone.demo.exception.exceptions.UserNotFoundException
 import com.twitterclone.demo.repo.UsersRepo
 import com.twitterclone.demo.repo.entities.User
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
 
 @Service
 class UsersService {
 
-    @Autowired
-    UsersRepo usersRepo;
-    final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder()
+    private final UsersRepo usersRepo
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder()
 
-    public static final String ID = "id"
+    UsersService(UsersRepo usersRepo) {
+        this.usersRepo = usersRepo
+    }
 
     Map<String, String> createUser(UserDto newUserDto) {
-        def passEncoded = passwordEncoder.encode(newUserDto.password)
-        def time = System.currentTimeMillis()
+        String passEncoded = passwordEncoder.encode(newUserDto.getPassword())
+        long time = System.currentTimeMillis()
 
-        def user = new User(
+        User user = new User(
                 userId: UUID.randomUUID().toString(),
-                username: newUserDto.username,
+                username: newUserDto.getUsername(),
                 password: passEncoded,
                 registrationDate: time,
                 lastUpdate: time
         )
 
-        def id = usersRepo.save(user).userId
+        String id = usersRepo.save(user).getUserId()
 
-        return [id: id] as Map
+        return Map.of("id", id)
     }
-
 
     void updateUser(UserDto userDto, String userId) {
         boolean hasChanges = false
         User user = checkIfUserExistsOrThrow(userId)
 
-        if (userDto.username) {
-            user.username = userDto.username
+        if (userDto.getUsername()) {
+            user.setUsername(userDto.getUsername())
             hasChanges = true
         }
 
-        if (userDto.password) {
-            user.password = userDto.password
+        if (userDto.getPassword()) {
+            user.setPassword(passwordEncoder.encode(userDto.getPassword()))
             hasChanges = true
         }
 
         if (hasChanges) {
-            user.lastUpdate = System.currentTimeMillis()
+            user.setLastUpdate(System.currentTimeMillis())
             usersRepo.save(user)
         }
     }
-
 
     void deleteUser(String userId) {
         User user = checkIfUserExistsOrThrow(userId)
@@ -63,7 +61,7 @@ class UsersService {
 
     void follow(String userId, String followerId) {
         User user = checkIfUserExistsOrThrow(userId)
-        User follower = checkIfUserExistsOrThrow(followerId, Type.FOLLOWER)
+        User follower = checkIfUserExistsOrThrow(followerId)
 
         user.followers << follower
         follower.subscribers << user
@@ -73,7 +71,7 @@ class UsersService {
 
     void unfollow(String userId, String followerId) {
         User user = checkIfUserExistsOrThrow(userId)
-        User follower = checkIfUserExistsOrThrow(followerId, Type.FOLLOWER)
+        User follower = checkIfUserExistsOrThrow(followerId)
 
         user.followers.remove(follower)
         follower.subscribers.remove(user)
@@ -85,26 +83,16 @@ class UsersService {
         usersRepo.save(user)
     }
 
-    User checkIfUserExistsOrThrow(String userId, Type type) {
-        return getUserOrThrow(userId, type)
-    }
-
-
     User checkIfUserExistsOrThrow(String userId) {
-        return getUserOrThrow(userId, Type.USER)
+        return getUserOrThrow(userId)
     }
 
     Optional<User> findUserByUsername(String username) {
         return usersRepo.findByUsername(username)
     }
 
-    private User getUserOrThrow(String userId, Type type) {
-        User user = usersRepo.findById(userId)
-                .orElseThrow { new UserNotFoundException("${type.name()} with id '$userId' not found") }
-        return user
-    }
-
-    enum Type {
-        USER, FOLLOWER, SUBSCRIBER
+    private User getUserOrThrow(String userId) {
+        return usersRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User with id '" + userId + "' not found"))
     }
 }
